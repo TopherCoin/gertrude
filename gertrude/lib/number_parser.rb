@@ -68,10 +68,9 @@ class NumberParser
                         arr.delete_at(idx+1)
                         return true
                     end
-                else
-                    # done collating, replace Token with its value
-                    arr[idx] = @value
                 end
+                # done collating, replace Token with its value
+                arr[idx] = @value
             end
             false
         end
@@ -199,9 +198,9 @@ class NumberParser
             nxt = arr[idx+1]
             prv = (idx > 0) ? arr[idx-1] : nil
             case level
-            when 1 # absorb UNITs/TENs/HUNDREDS to the LEFT
+            when 1 # absorb UNITs/TENs/HUNDREDS to the LEFT (but not other SUFFIXes)
                 if prv
-                    unless prv.is_a?(Verbatim)
+                    unless prv.is_a?(Verbatim) || prv.is_a?(Suffix)
                         @value = @value * prv.value 
                         arr.delete_at(idx-1)
                         return true
@@ -224,6 +223,8 @@ class NumberParser
                     arr.delete_at(idx+1)
                     return true
                 end
+            when 99
+                arr[idx] = @value # participate in collation
             end
             false
         end
@@ -232,7 +233,7 @@ class NumberParser
     # Numeric literals, eg "123", "213,456"
     # we treat literals as composed UNITs, i.e. "123" is equivalent
     # to "one two three"
-    class Literal < Token
+    class Literal < Unit
         def initialize(separator)
             @name = "literal"
             @separator = separator
@@ -245,7 +246,6 @@ class NumberParser
                 tmp = s.gsub(@separator, '')
                 @value = tmp.to_i
                 @rank = UNIT
-                puts "REGEX MATCH, VALUE #{@value} RANK #{@rank}"
                 true
             end
         end
@@ -263,8 +263,9 @@ class NumberParser
         opts[:separator] ||= ','
         opts[:conjunctions] ||= ['and', ',', ';']
 
+        @debug = false
         @parsers = []
-        @split = %r{\b\s*(?:#{opts[:conjunctions].join('|')}|\s+)\s*\b}
+        @split = %r{(?:\b\s*(?:#{opts[:conjunctions].join('|')}|\s+)\s*\b)+}
         
         [ ["one", 1], ["a", 1], ["an", 1], 
           ["two", 2], ["three", 3], ["four", 4], ["five", 5], ["six", 6], ["seven", 7], ["eight", 8], ["nine", 9], ["niner", 9],
@@ -341,7 +342,7 @@ class NumberParser
         loop do
             begin
                 tok,idx = iter.next
-                puts "A: #{a} TOK: #{tok} IDX:#{idx}"
+                puts "A: #{a} TOK: #{tok} IDX:#{idx}" if @debug
                 if tok.is_a? klass
                     iter.rewind if tok.reduce!(a, idx, level) # a modified
                 end
@@ -351,7 +352,7 @@ class NumberParser
         end
     end
 
-    def parse(s)
+    def parse_dbg(s)
         puts a = tokenise(s)
         puts "TENS LEVEL 1"
         puts reduce!(a, Ten, 1)    # thirty one -> 31
@@ -371,6 +372,22 @@ class NumberParser
         puts reduce!(a, Verbatim, 2)
         puts "COLLATION LEVEL 99"
         puts reduce!(a, Token, 99)      # add adjacent terms
+        puts "FINAL #{a}"
+        a
+    end
+
+    def parse(s)
+        return parse_dbg(s) if @debug
+        a = tokenise(s)
+        reduce!(a, Ten, 1)    # thirty one -> 31
+        reduce!(a, Unit, 1)   # one two three -> 123
+        reduce!(a, Ten, 2)    # twenty twelve -> 2012
+        reduce!(a, Unit, 2)   # UNIT/TEN/UNIT/TEN... 2030 123 -> 2030123, 123 2030 -> 1232030
+        reduce!(a, Hundred, 1) # 2 100 -> 200; 100 36 -> 136
+        reduce!(a, Shift, 1)   # 55 1000 -> 55000
+        reduce!(a, Suffix, 1) # three score => 60
+        reduce!(a, Verbatim, 2)
+        reduce!(a, Token, 99)      # add adjacent terms
         a
     end
 end
@@ -440,6 +457,14 @@ if __FILE__ == $0
         expect(np.parse("twelve hundred")) == [1200]
         expect(np.parse("one twenty hundred")) == [12000] # bit unnatural
 
+        # integer literals
+        expect(np.parse("123")) == [123]
+        expect(np.parse("123 456")) == [123456]
+        expect(np.parse("123 four five six")) == [123456]
+        expect(np.parse("one 2 three 4 five 6")) == [123456]
+        expect(np.parse("1 two 3 four 5 six")) == [123456]
+        expect(np.parse("123 hundred")) == [12300]
+
         # canonical names
         expect(np.parse("two twenty")) == [220]
         expect(np.parse("two score")) == [40]
@@ -448,39 +473,28 @@ if __FILE__ == $0
 
         # cockney
         expect(np.parse("three grand two monkies and a pony")) == [4025]
-        break
-        expect(np.parse("two large")) == 2000
-        expect(np.parse("a pony")) == 25
-        expect(np.parse("two ponies")) == 50
-        expect(np.parse("a monkey")) == 500
-        expect(np.parse("two monkies")) == 1000
-        expect(np.parse("two nifties")) == 100
-        expect(np.parse("a score")) == 20
-        expect(np.parse("two score")) == 40
-        expect(np.parse("a tenner")) == 10
-        expect(np.parse("three tenners")) == 30
-        expect(np.parse("a bernie")) == 1000000
-        expect(np.parse("a bernie and three archers")) == 1006000
-        expect(np.parse("a bernie, three archers, and a monkey")) == 1006500
-        expect(np.parse("a bernie, three archers and a grand, and a monkey")) == 1007500
-        expect(np.parse("a bernie, three archers and a grand, and a monkey, and a nifty")) == 1007550
-        #expect(np.parse("a bernie, three archers and a grand, a monkey and two nifties")) == 1007600
+        expect(np.parse("two large")) == [2000]
+        expect(np.parse("a pony")) == [25]
+        expect(np.parse("two ponies")) == [50]
+        expect(np.parse("a monkey")) == [500]
+        expect(np.parse("two monkies")) == [1000]
+        expect(np.parse("two nifties")) == [100]
+        expect(np.parse("a score")) == [20]
+        expect(np.parse("two score")) == [40]
+        expect(np.parse("a tenner")) == [10]
+        expect(np.parse("three tenners")) == [30]
+        expect(np.parse("a bernie")) == [1000000]
+        expect(np.parse("a bernie and three archers")) == [1006000]
+        expect(np.parse("a bernie, three archers, and a monkey")) == [1006500]
+        expect(np.parse("a bernie, three archers and a grand, and a monkey")) == [1007500]
+        expect(np.parse("a bernie, three archers and a grand, and a monkey, and a nifty")) == [1007550]
+        expect(np.parse("a bernie, three archers and a grand, a monkey and two nifties")) == [1007600]
+        expect(np.parse("a bernie, three archers and a grand, a monkey two nifties, and a pony")) == [1007625]
+        expect(np.parse("a bernie, three archers and a grand, a monkey two nifties, a pony a tenner and a jackson")) == [1007640]
         
-        # test destructive parser
-        expect " pence" do
-            s = "twenty pence"
-            np.parse!(s)
-            s
-        end
-
-        # test replacement
-        expect [20, "pence"] do
-            np.replace_a("twenty pence")
-        end
-
-        expect [20, "divided", "by", 30] do
-            np.replace_a("twenty divided by thirty")
-        end
+        # test replacements
+        expect(np.parse("twenty pence")) == [20, "pence"]
+        expect(np.parse("twenty divided by thirty")) == [20, "divided by", 30]
         
     end
 end
