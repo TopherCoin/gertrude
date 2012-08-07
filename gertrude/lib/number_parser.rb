@@ -115,6 +115,13 @@ class NumberParser
         end
     end
 
+    # Syntactic sugar for TEENs, which are really just UNITs, even though you might expect them to be TENs.
+    # The salient feature of TENs is that they can combine with a UNIT on their right (eg "twenty five") - this
+    # is not the case for "twelve" et al - functionally they are equivalent to UNITs. We give them a sugar
+    # class to avoid any confusion.
+    class Teen < Unit
+    end 
+
     class Ten < Token
 
         # reduce arr by modifying arr; return TRUE if changes made
@@ -270,10 +277,14 @@ class NumberParser
         [ ["one", 1], ["a", 1], ["an", 1], 
           ["two", 2], ["three", 3], ["four", 4], ["five", 5], ["six", 6], ["seven", 7], ["eight", 8], ["nine", 9], ["niner", 9],
           ["zero", 0], ["oh", 0], ["nought", 0], ["ten", 10],
-          ["eleven", 11], ["twelve", 12], ["thirteen", 13], ["fourteen", 14], ["fifteen", 15],
-          ["sixteen", 16], ["seventeen", 17], ["eighteen", 18], ["nineteen", 19],
         ].each do |x|
             @parsers << Unit.new(*x)
+        end
+
+        [ ["eleven", 11], ["twelve", 12], ["thirteen", 13], ["fourteen", 14], ["fifteen", 15],
+          ["sixteen", 16], ["seventeen", 17], ["eighteen", 18], ["nineteen", 19],
+        ].each do |x|
+            @parsers << Teen.new(*x)
         end
 
         [ ["twenty", 20], ["thirty", 30], ["forty", 40], ["fifty", 50], ["sixty", 60], ["seventy", 70], ["eighty", 80], ["ninety", 90]
