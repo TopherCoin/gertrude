@@ -63,7 +63,7 @@ class NumberParser
             case level
             when 99 # at level 99 we collate adjacent tokens with addition
                 if nxt
-                    unless nxt.is_a?(Verbatim) || nxt.is_a?(Conjunction)
+                    unless nxt.is_a?(Verbatim) 
                         @value = @value + nxt.value
                         arr.delete_at(idx+1)
                         return true
@@ -201,7 +201,7 @@ class NumberParser
             case level
             when 1 # absorb UNITs/TENs/HUNDREDS to the LEFT
                 if prv
-                    unless prv.is_a?(Verbatim) || prv.is_a?(Conjunction)
+                    unless prv.is_a?(Verbatim)
                         @value = @value * prv.value 
                         arr.delete_at(idx-1)
                         return true
@@ -210,17 +210,6 @@ class NumberParser
             end
             super
         end
-    end
-
-    class Conjunction < Token
-        # reduce arr by modifying arr; return TRUE if changes made
-        #def reduce!(arr, idx, level=1)
-            #if arr[idx].is_a? Conjunction
-                #arr.delete_at(idx)
-                #return true
-            #end
-            #super
-        #end
     end
 
     class Verbatim < Token
@@ -329,11 +318,6 @@ class NumberParser
             end
         end
 
-        # add some common separator words (no semantic relevance)
-        #@parsers << Conjunction.new("and", 0)
-        #@parsers << Conjunction.new(",", 0)
-        #@parsers << Conjunction.new(";", 0)
-
         # sort 'em, longest match first
         @parsers.sort! {|a,b| b.name.length <=> a.name.length}
 
@@ -369,8 +353,6 @@ class NumberParser
 
     def parse(s)
         puts a = tokenise(s)
-        #puts "CONJUNCTIONS"
-        #puts reduce!(a, Conjunction)
         puts "TENS LEVEL 1"
         puts reduce!(a, Ten, 1)    # thirty one -> 31
         puts "UNITS LEVEL 1"
