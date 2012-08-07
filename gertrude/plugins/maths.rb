@@ -1,66 +1,96 @@
-#require 'cinch'
+#!/usr/bin/env ruby
+
+$:.unshift File.expand_path('../../../lib', __FILE__)
+$:.unshift File.expand_path('../../lib', __FILE__)
+
+# cinch stuff
+require 'cinch'
+
+# gertrude stuff
+require 'english'
+require 'exec'
 
 class Maths
-    class Context
-        attr_reader :binding
+    include Cinch::Plugin
 
-        def initialize
-            first = 1
-            second = 2
-            third = 3
-            fourth = 4
-            fifth = 5
-            sixth = 6
-            seventh = 7
-            eighth = 8
-            ninth = 9
-            tenth = 10
-            eleventh = 11
-            twelfth = 12
-            thirteenth = 13
-            fourteenth = 14
-            fifteenth = 15
-            sixteenth = 16
-            seventeenth = 17
-            eighteenth = 18
-            nineteenth = 19
-            twentieth = 20
-            one = 1
-            two = 2
-            three = 3
-            four = 4
-            five = 5
-            six = 6
-            seven = 7
-            eight = 8
-            nine = 9
-            ten = 10
-            eleven = 11
-            twelve = 12
-            thirteen = 13
-            fourteen = 14
-            fifteen = 15
-            sixteen = 16
-            seventeen = 17
-            eighteen = 18
-            nineteen = 19
-            twenty = 20
-            @binding = binding
+    match /.+/, suffix: /\?\?$/, use_prefix: false, react_on: :channel, method: :channel_msg
+    match /.+/, suffix: /\?$/, method: :private_msg
+
+    def initialize(*args)
+        super
+        @parser = NumberParser.new
+        @sandbox = BlankSlate.new
+
+    end
+
+    def channel_msg(m)
+        s = m.message.gsub(/\?+$/, '')
+        if result = process_msg(s)
+            m.reply(result, true)
+        end
+    end
+
+    def private_msg(m)
+        s = m.message.gsub(/\?+$/, '')
+        if result = process_msg(s)
+            m.reply(result, true)
+        end
+    end
+
+    def process_msg(m)
+        result = nil
+
+        # convert verbose numerics to integers
+        if @parser.candidate?(m)
+            m = @parser.replace(m)
         end
 
-        def forty_two
-            42
+        # handle exponentiation
+        m.gsub!(/ to the power of /, " ** ")
+        m.gsub!(/ to the /, " ** ")
+
+        # handle multiplication, division, addition, subtraction, power, percent
+        m.gsub!(/\btimes\b/, "*")
+        m.gsub!(/\bdiv(ided by)? /, "/ ")
+        m.gsub!(/\bover /, "/ ")
+        m.gsub!(/\bsquared/, "**2 ")
+        m.gsub!(/\bcubed/, "**3 ")
+        m.gsub!(/\bto\s+(\d+)(r?st|nd|rd|th)?( power)?/, '**\1 ')
+        m.gsub!(/\bpercent of/, "*0.01*")
+        m.gsub!(/\bpercent/, "*0.01")
+        m.gsub!(/\% of\b/, "*0.01*")
+        m.gsub!(/\%/, "*0.01")
+        m.gsub!(/\+VAT/i, "*1.2")
+        m.gsub!(/\bsquare root of (\d+(\.\d+)?)/, '\1 ** 0.5 ')
+        m.gsub!(/\bcubed? root of (\d+(\.\d+)?)/, '\1 **(1.0/3.0) ')
+        m.gsub!(/ of /, " * ")
+        m.gsub!(/(plus|and)/, "+")
+        m.gsub!(/(minus|less)/, "-")
+
+        # execute the expression, if we get a result reply with it
+        begin
+            result = @sandbox.exec(m)
+        rescue BlankSlate::Timeout => e
+            # took too long - poss. malicious while loop
+        rescue SecurityError => e
+            # an attempt to do something fruity 
+        rescue Exception => e
+            # trying to access system() etc, or honest expression error
         end
+        result
     end
 end
 
-#bot = Cinch::Bot.new do
-    #configure do |c|
-        #c.server = "irc.z.je"
-        #c.channels = ["#gertrude"]
-        #c.plugins.plugins = [Maths]
-    #end
-#end
+if __FILE__ == $0
+    bot = Cinch::Bot.new do
+        configure do |c|
+            c.nicks = [ 'gertrude', 'gert', 'gertie', 'gerters', 'ermintrude']
+            c.server = "irc.z.je"
+            c.channels = ["#ukha"]
+            c.plugins.plugins = [Maths]
+        end
+    end
 
-#bot.start
+    bot.start
+end
 

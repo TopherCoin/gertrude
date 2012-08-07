@@ -1,5 +1,8 @@
 #!/usr/bin/env ruby
 
+# A simple parser for English natural number phrases. Almost comprehensive,
+# but barfs on some complicated terminals that appear both in prefix and
+# suffix expressions. Probably requires a proper TDOP parser to do it justice.
 
 class NumberParser
     # short or long scale - alters meaning of 'billion' etc
@@ -79,6 +82,8 @@ class NumberParser
         end
 
         def reduce
+            return nil if @frames.compact.empty?
+
             total = @frames.inject(0) do |acc,n|
                 acc += n.reduce
             end
@@ -198,7 +203,9 @@ class NumberParser
     end
 
     def initialize
+        @names = []
         @parselets = []
+
         simples = {
             # order is important - we want to try matching 'sixty' before we try 'six'
             ten:['tenner', 'tenner', 'tenners', 'ayrton', 'ayrton', 'ayrtons', 10], eleven:11, twelve:['dozen', 12], thirteen:13, fourteen:14, fifteen:15, 
@@ -238,6 +245,7 @@ class NumberParser
                 value = v
                 names = [k.to_s]
             end
+            add_names(names)
             @parselets.push NPSimple.new(names, value)
         end
 
@@ -245,6 +253,7 @@ class NumberParser
             lvalue = v.pop
             svalue = v.pop
             names = v.unshift(k.to_s)
+            add_names(names)
             @parselets.push NPComplex.new(names, lvalue, svalue)
         end
 
@@ -253,6 +262,20 @@ class NumberParser
         @parselets.push NPSimple.new(['one', 'an', 'a'], 1)
     end
 
+    # accept a list of names and add them to our list of matches to detect a potential candidate string
+    def add_names(a)
+        @names += a.select {|n| n.length > 2 }
+        @names.uniq!
+    end
+
+    # a rough metric to determine if the candidate string is likely to be parsable
+    def candidate?(s)
+        r = %r{(#{@names.join('|')})}
+        return true if s.match(r)
+        false
+    end
+
+    # strip off leading commas, 'and's etc
     def strip_separators(s, opts={})
         separator = opts[:separator] || ','
 
@@ -263,7 +286,40 @@ class NumberParser
         s
     end
 
-    def parse(s, opts={})
+    # given a string s, replace all numeric phrases it contains
+    # with the numerical equivalent value, and leave unparseable
+    # string fragments intact. Return is thus an array, eg:
+    # [100, "divided by", 20]
+    def replace_a(s, opts={})
+        results = []
+
+        until s.empty?
+            # first try to parse a number at head of string
+            if r = parse!(s, opts)
+                results.push r
+            else
+                # discard the head word
+                n = s.partition(%r{\s+})
+                puts "DISCARD #{n[0]} and reparse with #{n[-1]}"
+                results.push n[0] unless n[0].empty?
+                s = n[-1]
+            end
+        end
+        results
+    end
+
+    # as above, but return a string
+    def replace(s, opts={})
+        a = replace_a(s, opts)
+        a.join(' ')
+    end
+
+
+    # parse a numeric phrase at the start of a string, and return
+    # its numeric value, or nil if none found.
+    # The input string is modified to leave any remaining text
+    # fragment.
+    def parse!(s, opts={})
         puts "STARTED: s: #{s}"
         s = strip_separators(s, opts)
         stack = NPStack.new
@@ -272,14 +328,19 @@ class NumberParser
             begin
                 p = enum.next
                 if n = p.parse(s, stack, opts)
-                    s = strip_separators(n, opts)
+                    s.replace strip_separators(n, opts)
                     enum.rewind
                 end
             rescue StopIteration
-                puts "FINISHED: stack: #{stack} s: #{s}\n\n"
-                return stack.reduce
+                r = stack.reduce
+                puts "FINISHED: stack: #{stack} s: #{s} ret:#{r}\n\n"
+                return r
             end
         end
+    end
+
+    def parse(s, opts={})
+        parse!(s.dup, opts)
     end
 end
 
@@ -372,6 +433,22 @@ if __FILE__ == $0
         expect(np.parse("a bernie, three archers and a grand, and a monkey")) == 1007500
         expect(np.parse("a bernie, three archers and a grand, and a monkey, and a nifty")) == 1007550
         #expect(np.parse("a bernie, three archers and a grand, a monkey and two nifties")) == 1007600
+        
+        # test destructive parser
+        expect " pence" do
+            s = "twenty pence"
+            np.parse!(s)
+            s
+        end
+
+        # test replacement
+        expect [20, "pence"] do
+            np.replace_a("twenty pence")
+        end
+
+        expect [20, "divided", "by", 30] do
+            np.replace_a("twenty divided by thirty")
+        end
         
     end
 end

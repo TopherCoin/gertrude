@@ -1,8 +1,11 @@
-Cinch - The IRC Bot Building Framework
-=====================================
+Gertrude - #ant.org channel bot
+===============================
 
 Description
 -----------
+
+Gertrude is the #ant.org channel bot. She's fifth generation implemented in Cinch; 
+previous incarnations were in RBot, MozBot, infobot, and straight perl.
 
 Cinch is an IRC Bot Building Framework for quickly creating IRC bots in
 Ruby with minimal effort. It provides a simple interface based on plugins and
