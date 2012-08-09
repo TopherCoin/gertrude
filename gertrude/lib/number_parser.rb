@@ -270,9 +270,10 @@ class NumberParser
         opts[:separator] ||= ','
         opts[:conjunctions] ||= ['and', ',', ';']
 
-        @debug = false
+        @debug = true
         @parsers = []
-        @split = %r{(?:\b\s*(?:#{opts[:conjunctions].join('|')}|\s+)\s*\b)+}
+        #@split = %r{(?:\b\s*(?:#{opts[:conjunctions].join('|')}|\s+)\s*\b)+}
+        @split = %r{(?:\s+|\b#{opts[:conjunctions].join('|')}|\b)}
         
         [ ["one", 1], ["a", 1], ["an", 1], 
           ["two", 2], ["three", 3], ["four", 4], ["five", 5], ["six", 6], ["seven", 7], ["eight", 8], ["nine", 9], ["niner", 9],
@@ -333,16 +334,32 @@ class NumberParser
         # sort 'em, longest match first
         @parsers.sort! {|a,b| b.name.length <=> a.name.length}
 
+        # build our candidate scanner regex
+        @candidates = @parsers.map {|p| p.name }
+        @candidates.delete_if {|c| c.length < 3 }
+        @regex = %r{(#{@candidates.join('|')})}
+
         # include integer literals at head of list
         @parsers.unshift Literal.new(',')
     end
 
+    # number parsing is expensive: is_candidate? gives an indication as to
+    # whether it is worthwhile for a given string. Note that this test is
+    # not infallible.
+    def is_candidate?(s)
+        if m = @regex.match(s)
+            return true
+        end
+        false
+    end
+
     # return a list of tokens
     def tokenise(s)
-        words = s.split(@split)
+        words = s.split(@split).delete_if {|w| w.nil? || w.strip.empty? }
+        puts "WORDS: #{words}" 
         words.map! do |word|
-            p = @parsers.find {|p| p.match(word) }
-            p ? p.dup : Verbatim.new("verbatim", word)
+            p = @parsers.find {|p| p.match(word.strip) }
+            p ? p.dup : Verbatim.new("verbatim", word.strip)
         end
     end
 
@@ -364,7 +381,7 @@ class NumberParser
     end
 
     def parse_dbg(s)
-        puts a = tokenise(s)
+        puts "TOKENS: #{a = tokenise(s)}"
         puts "TENS LEVEL 1"
         puts reduce!(a, Ten, 1)    # thirty one -> 31
         puts "UNITS LEVEL 1"
@@ -507,5 +524,15 @@ if __FILE__ == $0
         expect(np.parse("twenty pence")) == [20, "pence"]
         expect(np.parse("twenty divided by thirty")) == [20, "divided by", 30]
         
+        # test candidates
+        expect(np.is_candidate?("banana badger sandwich")) == false
+        expect(np.is_candidate?("forty")) == true
+
+        # test noise in the input
+        expect(np.parse("one + two")) == [1, '+', 2]
+        expect(np.parse("one+two")) == [1, '+', 2]
+        expect(np.parse("(three plus five) divided by 4")) == ['(', 3, 'plus', 5, ') divided by', 4]
+        expect(np.parse("1+2")) == [1, '+', 2]
+        expect(np.parse("(3+5)/4")) == ['(', 3, '+', 5, ')/', 4]
     end
 end

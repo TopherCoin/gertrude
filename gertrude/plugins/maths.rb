@@ -7,7 +7,7 @@ $:.unshift File.expand_path('../../lib', __FILE__)
 require 'cinch'
 
 # gertrude stuff
-require 'english'
+require 'number_parser'
 require 'exec'
 
 class Maths
@@ -41,8 +41,9 @@ class Maths
         result = nil
 
         # convert verbose numerics to integers
-        if @parser.candidate?(m)
-            m = @parser.replace(m)
+        if @parser.is_candidate?(m)
+            a = @parser.parse(m)
+            m = a.join(' ')
         end
 
         # handle exponentiation
@@ -61,11 +62,17 @@ class Maths
         m.gsub!(/\% of\b/, "*0.01*")
         m.gsub!(/\%/, "*0.01")
         m.gsub!(/\+VAT/i, "*1.2")
+        m.gsub!(/\-VAT/i, "/1.2")
         m.gsub!(/\bsquare root of (\d+(\.\d+)?)/, '\1 ** 0.5 ')
         m.gsub!(/\bcubed? root of (\d+(\.\d+)?)/, '\1 **(1.0/3.0) ')
         m.gsub!(/ of /, " * ")
         m.gsub!(/(plus|and)/, "+")
         m.gsub!(/(minus|less)/, "-")
+
+        # ruby doesn't like floating-point values without a 0
+        # in front of them, so find any non-digit followed by
+        # a .<digits> and insert a 0 before the .
+        m.gsub!(/(\D|^)(\.\d+)/,'\10\2')
 
         # execute the expression, if we get a result reply with it
         begin
@@ -77,6 +84,16 @@ class Maths
         rescue Exception => e
             # trying to access system() etc, or honest expression error
         end
+        
+        # tidy the result format
+        if result =~ /^[-+\de\.]+$/
+            result = sprintf("%1.12f", result)
+            result.gsub!(/\.?0+$/, "")
+            result.gsub!(/(\.\d+)000\d+/, '\1')
+        end
+        if (result.to_s.length > 30)
+            result = "a number with #{result.to_s.length} digits..."
+        end
         result
     end
 end
@@ -86,7 +103,7 @@ if __FILE__ == $0
         configure do |c|
             c.nicks = [ 'gertrude', 'gert', 'gertie', 'gerters', 'ermintrude']
             c.server = "irc.z.je"
-            c.channels = ["#ukha"]
+            c.channels = ["#gertrude"]
             c.plugins.plugins = [Maths]
         end
     end
