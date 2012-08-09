@@ -22,19 +22,25 @@ class Seen
 
   def listen(m,*args)
       # don't need to listen to :action, we get than as part of :channel
+      n = m.user.nick
+      nc = n.downcase # canonical
+      ln = m.user.last_nick
+      lnc = ln.downcase
+      c = m.channel ? m.channel.name : "none"
+
       if m.events.include?(:topic) # :catchall :topic
-          @coll.update({nick: m.user.nick}, { nick: m.user.nick, timestamp: Time.now.to_i, channel: m.channel.name, action: 'TOPIC', info: m.params.last}, {upsert: true})
+          @coll.update({nick: nc}, { nick: nc, user: n, timestamp: Time.now.to_i, channel: c, action: 'TOPIC', info: m.params.last}, {upsert: true})
       elsif m.events.include?(:join) # :catchall :topic
-          @coll.update({nick: m.user.nick}, { nick: m.user.nick, timestamp: Time.now.to_i, channel: m.channel, action: 'JOIN', info: m.channel}, {upsert: true})
+          @coll.update({nick: nc}, { nick: nc, user: n, timestamp: Time.now.to_i, channel: c, action: 'JOIN', info: c}, {upsert: true})
       elsif m.events.include?(:leaving) # :catchall :leaving :part
-          @coll.update({nick: m.user.nick}, { nick: m.user.nick, timestamp: Time.now.to_i, channel: m.channel.name, action: 'PART', info: m.channel.name}, {upsert: true})
+          @coll.update({nick: nc}, { nick: nc, user:n, timestamp: Time.now.to_i, channel: c, action: 'PART', info: c}, {upsert: true})
       elsif m.events.include?(:nick) # :catchall :nick
-          @coll.update({nick: m.user.nick}, { nick: m.user.last_nick, timestamp: Time.now.to_i, channel: m.channel.name, action: 'NICK', info: m.user.nick}, {upsert: true})
+          @coll.update({nick: lnc}, { nick: lnc, user:ln, timestamp: Time.now.to_i, channel: c, action: 'NICK', info: n}, {upsert: true})
       elsif m.events.include?(:channel)
           if m.events.include?(:action) # :catchall :ctcp :channel :message :action :privmsg
-              @coll.update({nick: m.user.nick}, { nick: m.user.nick, timestamp: Time.now.to_i, channel: m.channel.name, action: 'ACTION', info: m.action_message}, {upsert: true})
+              @coll.update({nick: nc}, { nick: nc, user: ln, timestamp: Time.now.to_i, channel: c, action: 'ACTION', info: m.action_message}, {upsert: true})
           else
-              @coll.update({nick: m.user.nick}, { nick: m.user.nick, timestamp: Time.now.to_i, channel: m.channel.name, action: 'PUBLIC', info: m.message}, {upsert: true})
+              @coll.update({nick: nc}, { nick: nc, user: ln, timestamp: Time.now.to_i, channel: c, action: 'PUBLIC', info: m.message}, {upsert: true})
           end
       end
   end
@@ -44,8 +50,15 @@ class Seen
           m.reply "That's me!"
       elsif target == m.user.nick
           m.reply "That's you!"
-      elsif i = @coll.find_one({nick: target})
-          ret = "#{target} was last seen "
+      elsif i = @coll.find_one({nick: target.downcase})
+          # the 'nick' field is stored in a canonical lower case form; however as of this incarnation
+          # we store the original caseful form in 'user' for maximum splendour
+          if i['user']
+            ret = "#{i['user']} was last seen "
+          else
+            ret = "#{target} was last seen "
+          end
+
           ago = Time.new.to_i - i['timestamp']
 
           if(ago.to_i < 10)
