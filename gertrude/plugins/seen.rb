@@ -15,7 +15,6 @@ class Seen
 
   def initialize(*args)
     super
-    @users = {}
     @db = Mongo::Connection::new.db("gertrude")
     @coll = @db.collection("seen")
   end
