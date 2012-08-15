@@ -90,7 +90,9 @@ class RFC
     end
 
     include Cinch::Plugin
-    include Cinch::Helpers
+
+    set :prefix, %r{\A(?:!|gertrude,\s*)}
+    set :suffix, %r{\??\Z}
     match %r{rfc\s*(\d+)}, method: :rfc_numeric
     match %r{rfc\s+(\S+)}, method: :stringy
     match %r{bcp\s*(\d+)}, method: :bcp_numeric
