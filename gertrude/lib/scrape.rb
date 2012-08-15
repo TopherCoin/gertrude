@@ -59,7 +59,8 @@ class Scrape
     #   <block>: a lambda which will be responsible for converting
     #   newly-scraped HTML/XML into database entries. The lambda is called
     #   with the entire XML file and the database collection as arguments.
-    #   Lambda is only called if no handler: option was specified.
+    #   Lambda is only called if no handler: option was specified. It is passed
+    #   the mongo collection object and an IO object referencing the data.
     def initialize(plugin, useropts={}, &block)
         opts = {
             host: 'localhost',
@@ -159,7 +160,7 @@ class Scrape
     def db_empty?; db_entries == 0; end
 
     def do_scraping
-        @plugin.info "Fetching data..."
+        @plugin.info "Fetching data from #{@url}..."
         data = open(@url)
 
         @plugin.bot.synchronize(@mutex) do 
@@ -180,7 +181,7 @@ class Scrape
                     p.parse(data)
                 end
             else
-                @callback.call(@collection, data.read)
+                @callback.call(@collection, data)
             end
 
             @plugin.info "Refreshing timestamp..."
