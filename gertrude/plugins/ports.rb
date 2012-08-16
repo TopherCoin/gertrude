@@ -29,7 +29,6 @@ class Ports
             @history.push name
             case @history.join('/')
                 when 'registry/record'
-                    puts "CREATE NEW ENTRY"
                     @entry = {}
             end
         end
@@ -79,13 +78,11 @@ class Ports
     end
 
     def lookup_number(m, protocol, number)
-        puts "LOOKUP NUMBER protocol: '#{protocol}' number: '#{number}'"
         port = number.to_i
         c = get_data(m)
 
         if protocol
             if r = c.find_one( { 'protocol' => protocol.downcase, 'number' => port })
-                puts "FOUND It"
                 m.reply("%s port %s is %s" % [ Format(:bold, protocol), Format(:bold, number), Format(:italic, r['description'])])
             else
                 m.reply("can't find anything for #{protocol} port #{number}")
@@ -106,7 +103,6 @@ class Ports
     end
 
     def lookup_name(m, protocol, name)
-        puts "LOOKUP NAME"
         c = get_data(m)
 
         if protocol
