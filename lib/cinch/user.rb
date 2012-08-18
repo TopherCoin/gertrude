@@ -386,13 +386,15 @@ module Cinch
     # @return [void]
     # @see #monitor
     def unmonitor
-      if @bot.irc.isupport["MONITOR"] > 0
-        @bot.irc.send "MONITOR - #@name"
-      else
-        @monitored_timer.stop
-      end
+      if @monitored
+          if @bot.irc.isupport["MONITOR"] > 0
+            @bot.irc.send "MONITOR - #@name"
+          else
+            @monitored_timer.stop
+          end
 
-      @monitored = false
+          @monitored = false
+      end
     end
 
     # Send data via DCC SEND to a user.
