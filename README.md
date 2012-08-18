@@ -1,6 +1,6 @@
-*Gertrude - #ant.org channel bot
+#Gertrude - #ant.org channel bot
 
-**Description
+##Description
 
 Gertrude is the #ant.org channel bot. She's fifth generation implemented in Cinch; 
 previous incarnations were in RBot, MozBot, infobot, and straight perl.
@@ -12,7 +12,7 @@ Natural Language Processing features.
 Gertrude comes with many custom plugins.
 
 
-** Installation
+##Installation
 
 I can't imagine anyone wants to install their own gertrude, but if you do you'll need to install
 [mongo][] and its ruby driver, and also the [enju][] parser (which can be run on a different host,
