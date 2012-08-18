@@ -48,4 +48,40 @@ class MongoConfig
         key = key.to_s unless key.is_a? String
         @collection.update( { plgid: @id }, { plgid: @id, key => value }, { upsert: true })
     end
+
+end
+
+# a MongoConfig that can also inspect other plugins' config data
+class MetaMongoConfig < MongoConfig
+    # return LIST of plugins that have configs
+    def plugins
+        ret = []
+        @collection.find().each {|r| ret << r['plgid'] }
+        ret
+    end
+
+    # return a LIST of all the config keys for the given plugin
+    def plugin_configs(plugin)
+        ret = []
+        if r = @collection.find_one( { plgid: plugin } )
+            r.keys.each {|k| ret << k unless ['_id', 'plgid'].include?(k) }
+        end
+        ret
+    end
+
+    def plugin_get_key(plugin, key)
+        if r = @collection.find_one( { plgid: plugin } )
+            return r[key]
+        end
+        nil
+    end
+
+    def plugin_set_key(plugin, key, val)
+        if r = @collection.find_one( { plgid: plugin } )
+            r[key] = val
+            @collection.update( {plgid: plugin}, r)
+        end
+    end
+
+    
 end
