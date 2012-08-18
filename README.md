@@ -22,6 +22,6 @@ You'll also need Yubikeys from [yubico][] in order to authenticate with the bot 
 To add users to the database, use getrude/tools/user.rb. You'll need a Yubico API for each user/yubikey
 combination you want gertrude to recognise.
 
-[cinch] : https://github.com/cinchrb/cinch
-[enju] :http://www.nactem.ac.uk/enju/
-[yubico] : http://www.yubico.com/
+[cinch]: https://github.com/cinchrb/cinch
+[enju]: http://www.nactem.ac.uk/enju/
+[yubico]: http://www.yubico.com/
