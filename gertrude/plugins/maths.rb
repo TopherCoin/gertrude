@@ -16,11 +16,17 @@ class Maths
     match /.+/, suffix: /\?\?$/, use_prefix: false, react_on: :channel, method: :channel_msg
     match /.+/, suffix: /\?$/, method: :private_msg
 
+    # allow other plugins to set the value of @ans
+    listen_to :calculation_result, method: :set_ans
+
     def initialize(*args)
         super
         @parser = NumberParser.new
         @sandbox = BlankSlate.new
+    end
 
+    def set_ans(m, x)
+        @sandbox.ans = x
     end
 
     def channel_msg(m)

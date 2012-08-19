@@ -85,6 +85,9 @@ class Currency
                                                                       Format(:bold, dst),
                                                                       Format(:italic, t_dst['description']) ]
                         m.reply(reply)
+
+                        # send the result off to the Maths plugin so it can set @ans
+                        @bot.handlers.dispatch(:calculation_result, nil, amount2)
                     else
                         m.reply("can't find a rate for #{dst}")
                     end
