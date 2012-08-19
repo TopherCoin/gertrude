@@ -29,10 +29,6 @@ require 'delegate'
 # With a vanilla cinch bot/plugin approach, all three plugins would execute in parallel.
 # Also, if they all had a match for X, you'd get three responses, which is quite confusing.
 
-# Plugins want to register themselves with bot.handlers, but PartyLine wants to manage
-# its own independent set of plugins. The BotDelegate delegates all methods to @bot,
-# with the exception of the @handlers attribute, and the @plugins attribute.
-
 # WITHOUT PartyLine (PartyLineTestA, PartyLineTestB, PartyLineTestC all regular cinch plugins):
 #
 # [16:01] <blowbacH> gertrude, what is cheese
@@ -53,6 +49,9 @@ require 'delegate'
 # [16:20] <blowbacH> gertrude, what is cheese
 # [16:20] <gertrude> finally, PartyLineTestC has zero clue about cheese
 
+# Plugins want to register themselves with bot.handlers, but PartyLine wants to manage
+# its own independent set of plugins. The BotDelegate delegates all methods to @bot,
+# with the exception of the @handlers attribute, and the @plugins attribute.
 class BotDelegate < Delegator
     attr_accessor :handlers
     attr_reader :plugins
