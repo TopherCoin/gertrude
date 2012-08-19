@@ -74,11 +74,14 @@ module Cinch
     # @param [Message] message Message that caused the invocation
     # @param [Array] captures Capture groups of the pattern that are
     #   being passed as arguments
-    # @return [void]
-    def call(message, captures, arguments)
+    # @param [Boolean] sync If TRUE, wait for return value from called block
+    # @return [Boolean] the value returned from the block if sync was TRUE.
+    #   or FALSE otherwise.
+    def call(message, captures, arguments, sync=false)
       bargs = captures + arguments
+      ret = false
 
-      @thread_group.add Thread.new {
+      thr = Thread.new {
         @bot.loggers.debug "[New thread] For #{self}: #{Thread.current} -- #{@thread_group.list.size} in total."
 
         begin
@@ -93,6 +96,13 @@ module Cinch
           @bot.loggers.debug "[Thread done] For #{self}: #{Thread.current} -- #{@thread_group.list.size - 1} remaining."
         end
       }
+      @thread_group.add thr
+
+      # If we're synchronous, wait for the return value from the block, which
+      # will become our own return value. The convention is that blocks only
+      # return TRUE if they have successfully and completely handled the event.
+      ret = thr.value if sync
+      ret
     end
 
     # @return [String]

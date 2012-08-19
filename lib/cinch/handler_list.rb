@@ -7,9 +7,12 @@ module Cinch
   class HandlerList
     include Enumerable
 
+    attr_accessor :synchronous
+
     def initialize
       @handlers = Hash.new {|h,k| h[k] = []}
       @mutex = Mutex.new
+      @synchronous = false
     end
 
     def register(handler)
@@ -66,7 +69,8 @@ module Cinch
             captures = []
           end
 
-          handler.call(msg, captures, arguments)
+          # a synchronous handler can return TRUE; if it does stop processing immediately
+          return if handler.call(msg, captures, arguments, @synchronous)
         end
       end
     end

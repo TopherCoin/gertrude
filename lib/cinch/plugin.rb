@@ -315,11 +315,13 @@ module Cinch
         @bot.loggers.debug "[plugin] #{self.class.plugin_name}: Registering listener for type `#{listener.event}`"
         new_handler = Handler.new(@bot, listener.event, Pattern.new(nil, //, nil)) do |message, *args|
           if self.class.call_hooks(:pre, :listen_to, self, [message])
-            __send__(listener.method, message, *args)
+            ret = __send__(listener.method, message, *args)
             self.class.call_hooks(:post, :listen_to, self, [message])
           else
             @bot.loggers.debug "[plugin] #{self.class.plugin_name}: Dropping message due to hook"
+            ret = false
           end
+          ret
         end
 
         @handlers << new_handler
@@ -333,11 +335,13 @@ module Cinch
         @bot.loggers.debug "[plugin] #{self.class.plugin_name}: Registering CTCP `#{ctcp}`"
         new_handler = Handler.new(@bot, :ctcp, Pattern.generate(:ctcp, ctcp)) do |message, *args|
           if self.class.call_hooks(:pre, :ctcp, self, [message])
-            __send__("ctcp_#{ctcp.downcase}", message, *args)
+            ret = __send__("ctcp_#{ctcp.downcase}", message, *args)
             self.class.call_hooks(:post, :ctcp, self, [message])
           else
             @bot.loggers.debug "[plugin] #{self.class.plugin_name}: Dropping message due to hook"
+            ret = false
           end
+          ret
         end
 
         @handlers << new_handler
@@ -379,11 +383,13 @@ module Cinch
             args = []
           end
           if self.class.call_hooks(:pre, :match, self, [message])
-            method.call(message, *args)
+            ret = method.call(message, *args)
             self.class.call_hooks(:post, :match, self, [message])
           else
             @bot.loggers.debug "[plugin] #{self.class.plugin_name}: Dropping message due to hook"
+            ret = false
           end
+          ret
         end
         @handlers << new_handler
         @bot.handlers.register(new_handler)
@@ -398,7 +404,7 @@ module Cinch
         @bot.loggers.debug "[plugin] #{self.class.plugin_name}: Registering help message"
         help_pattern = Pattern.new(prefix, "help #{self.class.plugin_name}", suffix)
         new_handler = Handler.new(@bot, :message, help_pattern) do |message|
-          message.reply(self.class.help)
+          ret = message.reply(self.class.help)
         end
 
         @handlers << new_handler
